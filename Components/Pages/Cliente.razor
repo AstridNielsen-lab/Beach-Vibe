@@ -1,0 +1,403 @@
+@page "/cliente"
+@using AdmBeachApp.Services
+@using AdmBeachApp.Models
+@inject IProdutoService ProdutoService
+@inject IPedidoService PedidoService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Fazer Pedido - Quiosque da Praia</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="text-center">
+                <h1 class="display-4 text-primary">
+                    <i class="bi bi-umbrella-beach"></i>
+                    Quiosque da Praia
+                </h1>
+                <p class="lead">Faça seu pedido e relaxe na praia!</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Informações do Cliente -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person-circle"></i>
+                        Suas Informações
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">Seu Nome *</label>
+                            <input type="text" class="form-control" @bind="nomeCliente" placeholder="Digite seu nome" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Telefone</label>
+                            <input type="tel" class="form-control" @bind="telefoneCliente" placeholder="(11) 99999-9999" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Mesa</label>
+                            <input type="text" class="form-control" @bind="mesa" placeholder="Ex: Mesa 5, Guarda-sol 12" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cardápio -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3>
+                <i class="bi bi-menu-button-wide"></i>
+                Cardápio
+            </h3>
+        </div>
+    </div>
+    
+    <!-- Filtro por Categoria -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <select class="form-select" @bind="categoriaFiltro" @bind:after="FiltrarProdutos">
+                <option value="">Todas as categorias</option>
+                @foreach (var categoria in categorias)
+                {
+                    <option value="@categoria">@categoria</option>
+                }
+            </select>
+        </div>
+    </div>
+    
+    <!-- Produtos do Cardápio -->
+    <div class="row">
+        @if (produtosFiltrados.Any())
+        {
+            @foreach (var produto in produtosFiltrados)
+            {
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">@produto.Nome</h5>
+                            <p class="card-text">@produto.Descricao</p>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4 class="text-success mb-0">@produto.Preco.ToString("C")</h4>
+                                <span class="badge bg-secondary">@(produto.Categoria ?? "Geral")</span>
+                            </div>
+                            
+                            @if (produto.QuantidadeEstoque > 0)
+                            {
+                                <div class="d-flex align-items-center gap-2">
+                                    <label class="form-label mb-0">Qtd:</label>
+                                    <input type="number" class="form-control" style="width: 80px;" 
+                                           @bind="quantidadesProdutos[produto.Id]" 
+                                           min="0" max="@produto.QuantidadeEstoque" />
+                                    <button class="btn btn-success" @onclick="() => AdicionarAoPedido(produto)">
+                                        <i class="bi bi-plus"></i>
+                                        Adicionar
+                                    </button>
+                                </div>
+                                <small class="text-muted">Disponível: @produto.QuantidadeEstoque unidades</small>
+                            }
+                            else
+                            {
+                                <div class="alert alert-warning mb-0">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    Produto indisponível
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i>
+                    Nenhum produto encontrado na categoria selecionada.
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Carrinho Flutuante -->
+@if (itensPedido.Any())
+{
+    <div class="position-fixed bottom-0 end-0 m-3" style="z-index: 1050;">
+        <div class="card border-success" style="min-width: 300px;">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="bi bi-cart"></i>
+                    Seu Pedido (@itensPedido.Count itens)
+                </h6>
+                <button class="btn btn-sm btn-outline-light" @onclick="() => mostrarCarrinho = !mostrarCarrinho">
+                    <i class="bi bi-@(mostrarCarrinho ? "chevron-down" : "chevron-up")"></i>
+                </button>
+            </div>
+            
+            @if (mostrarCarrinho)
+            {
+                <div class="card-body">
+                    @foreach (var item in itensPedido)
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <strong>@item.Produto?.Nome</strong><br>
+                                <small>@item.Quantidade x @item.PrecoUnitario.ToString("C")</small>
+                            </div>
+                            <div class="d-flex align-items-center gap-1">
+                                <small><strong>@item.Subtotal.ToString("C")</strong></small>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoverItem(item)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    
+                    <hr>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Observações:</label>
+                        <textarea class="form-control" rows="2" @bind="observacoesPedido" 
+                                  placeholder="Alguma observação especial?"></textarea>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">Total:</h5>
+                        <h4 class="text-success mb-0">@itensPedido.Sum(i => i.Subtotal).ToString("C")</h4>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success" @onclick="FinalizarPedido" 
+                                disabled="@(string.IsNullOrWhiteSpace(nomeCliente))">
+                            <i class="bi bi-check-circle"></i>
+                            Finalizar Pedido
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="LimparCarrinho">
+                            <i class="bi bi-trash"></i>
+                            Limpar Carrinho
+                        </button>
+                    </div>
+                    
+                    @if (string.IsNullOrWhiteSpace(nomeCliente))
+                    {
+                        <small class="text-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Preencha seu nome para finalizar o pedido.
+                        </small>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<!-- Modal de Confirmação -->
+@if (mostrarModalConfirmacao)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-check-circle"></i>
+                        Pedido Realizado com Sucesso!
+                    </h5>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+                    </div>
+                    
+                    <h4>Pedido #@numeroPedidoGerado</h4>
+                    <p class="lead">Seu pedido foi enviado para a cozinha!</p>
+                    
+                    <div class="alert alert-info">
+                        <strong>Tempo estimado:</strong> 15-25 minutos<br>
+                        <strong>Acompanhe o status</strong> do seu pedido no painel do quiosque
+                    </div>
+                    
+                    <p>Obrigado por escolher o <strong>Quiosque da Praia</strong>!</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="NovoPedido">
+                        Fazer Novo Pedido
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Produto> produtos = new();
+    private List<Produto> produtosFiltrados = new();
+    private List<string> categorias = new();
+    private string categoriaFiltro = string.Empty;
+    
+    // Informações do cliente
+    private string nomeCliente = string.Empty;
+    private string telefoneCliente = string.Empty;
+    private string mesa = string.Empty;
+    private string observacoesPedido = string.Empty;
+    
+    // Carrinho
+    private List<ItemPedido> itensPedido = new();
+    private Dictionary<int, int> quantidadesProdutos = new();
+    private bool mostrarCarrinho = true;
+    
+    // Modal de confirmação
+    private bool mostrarModalConfirmacao = false;
+    private string numeroPedidoGerado = string.Empty;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarProdutos();
+    }
+    
+    private async Task CarregarProdutos()
+    {
+        try
+        {
+            produtos = await ProdutoService.GetProdutosAsync();
+            produtos = produtos.Where(p => p.QuantidadeEstoque > 0).ToList(); // Apenas produtos disponíveis
+            
+            categorias = produtos.Where(p => !string.IsNullOrEmpty(p.Categoria))
+                                .Select(p => p.Categoria!)
+                                .Distinct()
+                                .OrderBy(c => c)
+                                .ToList();
+            
+            // Inicializar quantidades
+            foreach (var produto in produtos)
+            {
+                quantidadesProdutos[produto.Id] = 1;
+            }
+            
+            await FiltrarProdutos();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao carregar produtos: {ex.Message}");
+        }
+    }
+    
+    private async Task FiltrarProdutos()
+    {
+        produtosFiltrados = produtos.AsQueryable()
+            .Where(p => string.IsNullOrEmpty(categoriaFiltro) || p.Categoria == categoriaFiltro)
+            .OrderBy(p => p.Nome)
+            .ToList();
+            
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+    
+    private void AdicionarAoPedido(Produto produto)
+    {
+        if (!quantidadesProdutos.ContainsKey(produto.Id) || quantidadesProdutos[produto.Id] <= 0)
+        {
+            JSRuntime.InvokeVoidAsync("alert", "Selecione uma quantidade válida!");
+            return;
+        }
+        
+        var quantidade = quantidadesProdutos[produto.Id];
+        
+        // Verificar se já existe no carrinho
+        var itemExistente = itensPedido.FirstOrDefault(i => i.ProdutoId == produto.Id);
+        if (itemExistente != null)
+        {
+            itemExistente.Quantidade += quantidade;
+        }
+        else
+        {
+            itensPedido.Add(new ItemPedido
+            {
+                ProdutoId = produto.Id,
+                Produto = produto,
+                Quantidade = quantidade,
+                PrecoUnitario = produto.Preco
+            });
+        }
+        
+        quantidadesProdutos[produto.Id] = 1; // Reset quantidade
+        StateHasChanged();
+    }
+    
+    private void RemoverItem(ItemPedido item)
+    {
+        itensPedido.Remove(item);
+        StateHasChanged();
+    }
+    
+    private void LimparCarrinho()
+    {
+        itensPedido.Clear();
+        StateHasChanged();
+    }
+    
+    private async Task FinalizarPedido()
+    {
+        if (string.IsNullOrWhiteSpace(nomeCliente))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Por favor, informe seu nome!");
+            return;
+        }
+        
+        if (!itensPedido.Any())
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Adicione pelo menos um item ao pedido!");
+            return;
+        }
+        
+        try
+        {
+            var novoPedido = new Pedido
+            {
+                NomeCliente = nomeCliente,
+                TelefoneCliente = telefoneCliente,
+                Mesa = mesa,
+                Observacoes = observacoesPedido,
+                Itens = itensPedido.Select(i => new ItemPedido
+                {
+                    ProdutoId = i.ProdutoId,
+                    Quantidade = i.Quantidade,
+                    PrecoUnitario = i.PrecoUnitario,
+                    ObservacoesItem = i.ObservacoesItem
+                }).ToList()
+            };
+            
+            var pedidoCriado = await PedidoService.CreatePedidoAsync(novoPedido);
+            numeroPedidoGerado = pedidoCriado.NumeroPedido;
+            mostrarModalConfirmacao = true;
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao realizar pedido: {ex.Message}");
+        }
+    }
+    
+    private void NovoPedido()
+    {
+        mostrarModalConfirmacao = false;
+        
+        // Limpar dados
+        nomeCliente = string.Empty;
+        telefoneCliente = string.Empty;
+        mesa = string.Empty;
+        observacoesPedido = string.Empty;
+        itensPedido.Clear();
+        numeroPedidoGerado = string.Empty;
+        
+        StateHasChanged();
+    }
+}
+

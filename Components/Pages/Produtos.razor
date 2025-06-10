@@ -1,0 +1,347 @@
+@page "/produtos"
+@using AdmBeachApp.Services
+@using AdmBeachApp.Models
+@inject IProdutoService ProdutoService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Produtos - AdmBeachApp</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="display-5">
+                    <i class="bi bi-box-seam text-primary"></i>
+                    Gestão de Produtos
+                </h1>
+                <button class="btn btn-primary" @onclick="() => AbrirModalProduto()">  
+                    <i class="bi bi-plus-circle"></i>
+                    Novo Produto
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text" class="form-control" placeholder="Buscar produtos..." 
+                       @bind="termoBusca" @onkeyup="BuscarProdutos" />
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" @bind="filtroCategoria" @bind:after="FiltrarProdutos">
+                <option value="">Todas as categorias</option>
+                @foreach (var categoria in categorias)
+                {
+                    <option value="@categoria">@categoria</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="mostrarEstoqueBaixo" 
+                       @bind="mostrarApenasEstoqueBaixo" @bind:after="FiltrarProdutos">
+                <label class="form-check-label" for="mostrarEstoqueBaixo">
+                    Apenas estoque baixo
+                </label>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Lista de Produtos -->
+    <div class="row">
+        @if (produtosFiltrados.Any())
+        {
+            @foreach (var produto in produtosFiltrados)
+            {
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100 @(produto.EstoqueBaixo ? "border-warning" : "")">
+                        @if (produto.EstoqueBaixo)
+                        {
+                            <div class="position-absolute top-0 end-0 p-2">
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    Estoque Baixo
+                                </span>
+                            </div>
+                        }
+                        
+                        <div class="card-body">
+                            <h5 class="card-title">@produto.Nome</h5>
+                            <p class="card-text">@produto.Descricao</p>
+                            
+                            <div class="row mb-2">
+                                <div class="col-6">
+                                    <small class="text-muted">Preço:</small><br>
+                                    <strong class="text-success">@produto.Preco.ToString("C")</strong>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Categoria:</small><br>
+                                    <span class="badge bg-secondary">@(produto.Categoria ?? "Sem categoria")</span>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <small class="text-muted">Estoque:</small><br>
+                                    <span class="@(produto.EstoqueBaixo ? "text-warning" : "text-info")">@produto.QuantidadeEstoque un.</span>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Mínimo:</small><br>
+                                    <span class="text-muted">@produto.EstoqueMinimo un.</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card-footer bg-transparent">
+                            <div class="btn-group w-100" role="group">
+                                <button class="btn btn-outline-primary btn-sm" 
+                                        @onclick="() => AbrirModalProduto(produto)">
+                                    <i class="bi bi-pencil"></i>
+                                    Editar
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" 
+                                        @onclick="() => AbrirModalEstoque(produto)">
+                                    <i class="bi bi-plus-square"></i>
+                                    Estoque
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" 
+                                        @onclick="() => ExcluirProduto(produto.Id)">
+                                    <i class="bi bi-trash"></i>
+                                    Excluir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i>
+                    Nenhum produto encontrado com os filtros aplicados.
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal do Produto -->
+@if (mostrarModalProduto)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(produtoEditando?.Id > 0 ? "Editar Produto" : "Novo Produto")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="FecharModalProduto"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="produtoEditando" OnValidSubmit="SalvarProduto">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Nome *</label>
+                            <InputText class="form-control" @bind-Value="produtoEditando!.Nome" />
+                            <ValidationMessage For="() => produtoEditando.Nome" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Descrição</label>
+                            <InputTextArea class="form-control" @bind-Value="produtoEditando.Descricao" rows="3" />
+                            <ValidationMessage For="() => produtoEditando.Descricao" />
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Preço *</label>
+                                    <InputNumber class="form-control" @bind-Value="produtoEditando.Preco" step="0.01" />
+                                    <ValidationMessage For="() => produtoEditando.Preco" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Categoria</label>
+                                    <InputText class="form-control" @bind-Value="produtoEditando.Categoria" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Quantidade em Estoque *</label>
+                                    <InputNumber class="form-control" @bind-Value="produtoEditando.QuantidadeEstoque" />
+                                    <ValidationMessage For="() => produtoEditando.QuantidadeEstoque" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Estoque Mínimo</label>
+                                    <InputNumber class="form-control" @bind-Value="produtoEditando.EstoqueMinimo" />
+                                    <ValidationMessage For="() => produtoEditando.EstoqueMinimo" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary" @onclick="FecharModalProduto">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i>
+                                Salvar
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Produto> produtos = new();
+    private List<Produto> produtosFiltrados = new();
+    private List<string> categorias = new();
+    private string termoBusca = string.Empty;
+    private string filtroCategoria = string.Empty;
+    private bool mostrarApenasEstoqueBaixo = false;
+    
+    private bool mostrarModalProduto = false;
+    private Produto produtoEditando = new();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarProdutos();
+    }
+    
+    private async Task CarregarProdutos()
+    {
+        try
+        {
+            produtos = await ProdutoService.GetProdutosAsync();
+            categorias = produtos.Where(p => !string.IsNullOrEmpty(p.Categoria))
+                                .Select(p => p.Categoria!)
+                                .Distinct()
+                                .OrderBy(c => c)
+                                .ToList();
+            await FiltrarProdutos();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao carregar produtos: {ex.Message}");
+        }
+    }
+    
+    private async Task FiltrarProdutos()
+    {
+        produtosFiltrados = produtos.AsQueryable()
+            .Where(p => string.IsNullOrEmpty(termoBusca) || 
+                       p.Nome.Contains(termoBusca, StringComparison.OrdinalIgnoreCase) ||
+                       (p.Descricao ?? "").Contains(termoBusca, StringComparison.OrdinalIgnoreCase))
+            .Where(p => string.IsNullOrEmpty(filtroCategoria) || p.Categoria == filtroCategoria)
+            .Where(p => !mostrarApenasEstoqueBaixo || p.EstoqueBaixo)
+            .OrderBy(p => p.Nome)
+            .ToList();
+            
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+    
+    private async Task BuscarProdutos()
+    {
+        await FiltrarProdutos();
+    }
+    
+    private void AbrirModalProduto(Produto? produto = null)
+    {
+        if (produto != null)
+        {
+            produtoEditando = new Produto
+            {
+                Id = produto.Id,
+                Nome = produto.Nome,
+                Descricao = produto.Descricao,
+                Preco = produto.Preco,
+                QuantidadeEstoque = produto.QuantidadeEstoque,
+                EstoqueMinimo = produto.EstoqueMinimo,
+                Categoria = produto.Categoria,
+                Ativo = produto.Ativo,
+                DataCriacao = produto.DataCriacao,
+                DataAtualizacao = produto.DataAtualizacao
+            };
+        }
+        else
+        {
+            produtoEditando = new Produto();
+        }
+        
+        mostrarModalProduto = true;
+    }
+    
+    private void FecharModalProduto()
+    {
+        mostrarModalProduto = false;
+        produtoEditando = new();
+    }
+    
+    private async Task SalvarProduto()
+    {
+        try
+        {
+            if (produtoEditando.Id > 0)
+            {
+                await ProdutoService.UpdateProdutoAsync(produtoEditando);
+            }
+            else
+            {
+                await ProdutoService.CreateProdutoAsync(produtoEditando);
+            }
+            
+            FecharModalProduto();
+            await CarregarProdutos();
+            await JSRuntime.InvokeVoidAsync("alert", "Produto salvo com sucesso!");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao salvar produto: {ex.Message}");
+        }
+    }
+    
+    private async Task ExcluirProduto(int produtoId)
+    {
+        var confirmacao = await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza que deseja excluir este produto?");
+        if (confirmacao)
+        {
+            try
+            {
+                await ProdutoService.DeleteProdutoAsync(produtoId);
+                await CarregarProdutos();
+                await JSRuntime.InvokeVoidAsync("alert", "Produto excluído com sucesso!");
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Erro ao excluir produto: {ex.Message}");
+            }
+        }
+    }
+    
+    private void AbrirModalEstoque(Produto produto)
+    {
+        // Implementar modal de ajuste de estoque posteriormente
+        JSRuntime.InvokeVoidAsync("alert", "Funcionalidade de ajuste de estoque será implementada em breve!");
+    }
+}
+

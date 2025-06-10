@@ -1,0 +1,199 @@
+@page "/"
+@using AdmBeachApp.Services
+@using AdmBeachApp.Models
+@inject IProdutoService ProdutoService
+@inject IVendaService VendaService
+
+<PageTitle>AdmBeachApp - Dashboard</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-4 text-primary">
+                <i class="bi bi-brightness-high"></i>
+                AdmBeachApp Dashboard
+            </h1>
+            <p class="lead">Bem-vindo ao sistema de gestão do seu quiosque de praia!</p>
+        </div>
+    </div>
+    
+    <!-- Cards de Resumo -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Vendas Hoje</h6>
+                            <h3 class="mb-0">@totalVendasHoje.ToString("C")</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-cash-coin fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Produtos Ativos</h6>
+                            <h3 class="mb-0">@totalProdutos</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-box-seam fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Estoque Baixo</h6>
+                            <h3 class="mb-0">@produtosEstoqueBaixo</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-exclamation-triangle fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Vendas Hoje</h6>
+                            <h3 class="mb-0">@quantidadeVendasHoje</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-graph-up fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Vendas Recentes e Produtos com Estoque Baixo -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history"></i>
+                        Vendas Recentes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @if (vendasRecentes.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Data/Hora</th>
+                                        <th>Cliente</th>
+                                        <th>Itens</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var venda in vendasRecentes.Take(5))
+                                    {
+                                        <tr>
+                                            <td>@venda.DataVenda.ToString("dd/MM/yyyy HH:mm")</td>
+                                            <td>@(venda.ClienteNome ?? "Não informado")</td>
+                                            <td>@venda.QuantidadeTotalItens</td>
+                                            <td><strong>@venda.Total.ToString("C")</strong></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">Nenhuma venda registrada hoje.</p>
+                    }
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-exclamation-triangle text-warning"></i>
+                        Estoque Baixo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @if (produtosComEstoqueBaixo.Any())
+                    {
+                        @foreach (var produto in produtosComEstoqueBaixo)
+                        {
+                            <div class="alert alert-warning py-2 mb-2">
+                                <strong>@produto.Nome</strong><br>
+                                <small>Estoque: @produto.QuantidadeEstoque | Mínimo: @produto.EstoqueMinimo</small>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-success">
+                            <i class="bi bi-check-circle"></i>
+                            Todos os produtos com estoque adequado!
+                        </p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private decimal totalVendasHoje = 0;
+    private int totalProdutos = 0;
+    private int produtosEstoqueBaixo = 0;
+    private int quantidadeVendasHoje = 0;
+    private List<Venda> vendasRecentes = new();
+    private List<Produto> produtosComEstoqueBaixo = new();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarDados();
+    }
+    
+    private async Task CarregarDados()
+    {
+        try
+        {
+            // Carregar dados de vendas
+            totalVendasHoje = await VendaService.GetTotalVendasHojeAsync();
+            vendasRecentes = await VendaService.GetVendasHojeAsync();
+            quantidadeVendasHoje = vendasRecentes.Count;
+            
+            // Carregar dados de produtos
+            var produtos = await ProdutoService.GetProdutosAsync();
+            totalProdutos = produtos.Count;
+            
+            produtosComEstoqueBaixo = await ProdutoService.GetProdutosEstoqueBaixoAsync();
+            produtosEstoqueBaixo = produtosComEstoqueBaixo.Count;
+        }
+        catch (Exception ex)
+        {
+            // Log do erro (implementar sistema de logging)
+            Console.WriteLine($"Erro ao carregar dados: {ex.Message}");
+        }
+    }
+}

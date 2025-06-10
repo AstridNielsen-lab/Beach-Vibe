@@ -1,0 +1,86 @@
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">
+            <i class="bi bi-brightness-high me-2"></i>
+            AdmBeachApp
+        </a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <i class="bi bi-house-door me-2"></i> Dashboard
+            </NavLink>
+        </div>
+        
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="pedidos">
+                <i class="bi bi-list-check me-2"></i> Pedidos
+            </NavLink>
+        </div>
+        
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="vendas">
+                <i class="bi bi-cart-check me-2"></i> Vendas
+            </NavLink>
+        </div>
+        
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="produtos">
+                <i class="bi bi-box-seam me-2"></i> Produtos
+            </NavLink>
+        </div>
+        
+        <hr class="my-3" />
+        
+        <div class="nav-item px-3">
+            <h6 class="text-muted small">CLIENTE</h6>
+        </div>
+        
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="cliente">
+                <i class="bi bi-umbrella-beach me-2"></i> Fazer Pedido
+            </NavLink>
+        </div>
+        
+        <hr class="my-3" />
+        
+        <div class="nav-item px-3">
+            <h6 class="text-muted small">RELATÓRIOS</h6>
+        </div>
+        
+        <div class="nav-item px-3">
+            <a class="nav-link text-muted" href="#" onclick="alert('Funcionalidade em desenvolvimento!')">
+                <i class="bi bi-graph-up me-2"></i> Vendas por Período
+            </a>
+        </div>
+        
+        <div class="nav-item px-3">
+            <a class="nav-link text-muted" href="#" onclick="alert('Funcionalidade em desenvolvimento!')">
+                <i class="bi bi-pie-chart me-2"></i> Produtos Mais Vendidos
+            </a>
+        </div>
+        
+        <hr class="my-3" />
+        
+        <div class="nav-item px-3">
+            <h6 class="text-muted small">SISTEMA</h6>
+        </div>
+        
+        <div class="nav-item px-3">
+            <a class="nav-link text-muted" href="#" onclick="alert('Funcionalidade de autenticação será implementada!')">
+                <i class="bi bi-person-circle me-2"></i> Perfil
+            </a>
+        </div>
+        
+        <div class="nav-item px-3">
+            <a class="nav-link text-muted" href="#" onclick="alert('Funcionalidade de configurações será implementada!')">
+                <i class="bi bi-gear me-2"></i> Configurações
+            </a>
+        </div>
+    </nav>
+</div>

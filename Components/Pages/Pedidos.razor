@@ -1,0 +1,441 @@
+@page "/pedidos"
+@using AdmBeachApp.Services
+@using AdmBeachApp.Models
+@inject IPedidoService PedidoService
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<PageTitle>Pedidos - AdmBeachApp</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="display-5">
+                    <i class="bi bi-list-check text-warning"></i>
+                    Gestão de Pedidos
+                </h1>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary" @onclick="CarregarPedidos">
+                        <i class="bi bi-arrow-clockwise"></i>
+                        Atualizar
+                    </button>
+                    <button class="btn btn-success" @onclick="AbrirModalNovoPedido">
+                        <i class="bi bi-plus-circle"></i>
+                        Novo Pedido
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Status do Pedido:</label>
+            <select class="form-select" @bind="filtroStatus" @bind:after="FiltrarPedidos">
+                <option value="">Todos os status</option>
+                <option value="0">Pendente</option>
+                <option value="1">Preparando</option>
+                <option value="2">Pronto</option>
+                <option value="3">Entregue</option>
+                <option value="4">Cancelado</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <div class="form-check form-switch mt-4">
+                <input class="form-check-input" type="checkbox" id="apenasAtivos" 
+                       @bind="mostrarApenasAtivos" @bind:after="FiltrarPedidos">
+                <label class="form-check-label" for="apenasAtivos">
+                    Apenas pedidos ativos
+                </label>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="d-flex align-items-end">
+                <button class="btn btn-outline-info" @onclick="CarregarPedidosHoje">
+                    <i class="bi bi-calendar-day"></i>
+                    Pedidos de Hoje
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resumo Rápido -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h5>Pendentes</h5>
+                    <h3>@pedidosFiltrados.Count(p => p.Status == StatusPedido.Pendente)</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h5>Preparando</h5>
+                    <h3>@pedidosFiltrados.Count(p => p.Status == StatusPedido.Preparando)</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h5>Prontos</h5>
+                    <h3>@pedidosFiltrados.Count(p => p.Status == StatusPedido.Pronto)</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h5>Total Hoje</h5>
+                    <h3>@pedidosFiltrados.Count(p => p.DataPedido.Date == DateTime.Today)</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Lista de Pedidos em Cards -->
+    <div class="row">
+        @if (pedidosFiltrados.Any())
+        {
+            @foreach (var pedido in pedidosFiltrados.OrderBy(p => p.Status).ThenBy(p => p.DataPedido))
+            {
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100 border-@pedido.StatusCor">
+                        <div class="card-header bg-@pedido.StatusCor text-white d-flex justify-content-between align-items-center">
+                            <strong>#@pedido.NumeroPedido</strong>
+                            <span class="badge bg-light text-dark">@pedido.TempoEspera</span>
+                        </div>
+                        
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                <i class="bi bi-person"></i>
+                                @pedido.NomeCliente
+                            </h6>
+                            
+                            @if (!string.IsNullOrEmpty(pedido.Mesa))
+                            {
+                                <p class="card-text">
+                                    <i class="bi bi-table"></i>
+                                    Mesa: @pedido.Mesa
+                                </p>
+                            }
+                            
+                            @if (!string.IsNullOrEmpty(pedido.TelefoneCliente))
+                            {
+                                <p class="card-text">
+                                    <i class="bi bi-telephone"></i>
+                                    @pedido.TelefoneCliente
+                                </p>
+                            }
+                            
+                            <div class="mb-2">
+                                <small class="text-muted">Itens:</small>
+                                @foreach (var item in pedido.Itens.Take(3))
+                                {
+                                    <div class="d-flex justify-content-between">
+                                        <span>@item.Quantidade x @item.Produto?.Nome</span>
+                                        <small>@item.Subtotal.ToString("C")</small>
+                                    </div>
+                                }
+                                @if (pedido.Itens.Count > 3)
+                                {
+                                    <small class="text-muted">... e mais @(pedido.Itens.Count - 3) itens</small>
+                                }
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <strong class="text-success">Total: @pedido.Total.ToString("C")</strong>
+                                <span class="badge bg-@pedido.StatusCor">@pedido.StatusTexto</span>
+                            </div>
+                            
+                            @if (!string.IsNullOrEmpty(pedido.Observacoes))
+                            {
+                                <div class="alert alert-info py-1 mb-2">
+                                    <small><strong>Obs:</strong> @pedido.Observacoes</small>
+                                </div>
+                            }
+                        </div>
+                        
+                        <div class="card-footer bg-transparent">
+                            <div class="btn-group w-100 mb-2" role="group">
+                                @if (pedido.Status == StatusPedido.Pendente)
+                                {
+                                    <button class="btn btn-info btn-sm" @onclick="() => AtualizarStatus(pedido.Id, StatusPedido.Preparando)">
+                                        <i class="bi bi-play"></i>
+                                        Preparar
+                                    </button>
+                                }
+                                @if (pedido.Status == StatusPedido.Preparando)
+                                {
+                                    <button class="btn btn-success btn-sm" @onclick="() => AtualizarStatus(pedido.Id, StatusPedido.Pronto)">
+                                        <i class="bi bi-check"></i>
+                                        Pronto
+                                    </button>
+                                }
+                                @if (pedido.Status == StatusPedido.Pronto)
+                                {
+                                    <button class="btn btn-primary btn-sm" @onclick="() => AtualizarStatus(pedido.Id, StatusPedido.Entregue)">
+                                        <i class="bi bi-truck"></i>
+                                        Entregar
+                                    </button>
+                                }
+                                
+                                <button class="btn btn-outline-primary btn-sm" @onclick="() => VisualizarPedido(pedido)">
+                                    <i class="bi bi-eye"></i>
+                                    Ver
+                                </button>
+                                
+                                @if (pedido.Status != StatusPedido.Entregue && pedido.Status != StatusPedido.Cancelado)
+                                {
+                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => CancelarPedido(pedido.Id)">
+                                        <i class="bi bi-x"></i>
+                                        Cancelar
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i>
+                    Nenhum pedido encontrado com os filtros aplicados.
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal Detalhes do Pedido -->
+@if (mostrarModalDetalhes && pedidoSelecionado != null)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-receipt"></i>
+                        Pedido #@pedidoSelecionado.NumeroPedido
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="FecharModalDetalhes"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Cliente:</strong><br>
+                            @pedidoSelecionado.NomeCliente
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Status:</strong><br>
+                            <span class="badge bg-@pedidoSelecionado.StatusCor">@pedidoSelecionado.StatusTexto</span>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <strong>Data/Hora:</strong><br>
+                            @pedidoSelecionado.DataPedido.ToString("dd/MM/yyyy HH:mm")
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Mesa:</strong><br>
+                            @(pedidoSelecionado.Mesa ?? "Não informada")
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Telefone:</strong><br>
+                            @(pedidoSelecionado.TelefoneCliente ?? "Não informado")
+                        </div>
+                    </div>
+                    
+                    @if (!string.IsNullOrEmpty(pedidoSelecionado.Observacoes))
+                    {
+                        <div class="mb-3">
+                            <strong>Observações:</strong><br>
+                            @pedidoSelecionado.Observacoes
+                        </div>
+                    }
+                    
+                    <h6>Itens do Pedido:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Preço Unit.</th>
+                                    <th>Quantidade</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in pedidoSelecionado.Itens)
+                                {
+                                    <tr>
+                                        <td>
+                                            @item.Produto?.Nome
+                                            @if (!string.IsNullOrEmpty(item.ObservacoesItem))
+                                            {
+                                                <br><small class="text-muted">Obs: @item.ObservacoesItem</small>
+                                            }
+                                        </td>
+                                        <td>@item.PrecoUnitario.ToString("C")</td>
+                                        <td>@item.Quantidade</td>
+                                        <td><strong>@item.Subtotal.ToString("C")</strong></td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="3">Total:</th>
+                                    <th><h5 class="text-success mb-0">@pedidoSelecionado.Total.ToString("C")</h5></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="FecharModalDetalhes">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Pedido> pedidos = new();
+    private List<Pedido> pedidosFiltrados = new();
+    private string filtroStatus = string.Empty;
+    private bool mostrarApenasAtivos = true;
+    
+    // Modal Detalhes
+    private bool mostrarModalDetalhes = false;
+    private Pedido? pedidoSelecionado = null;
+    
+    // Timer para atualização automática
+    private Timer? timer;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarPedidos();
+        
+        // Atualizar automaticamente a cada 30 segundos
+        timer = new Timer(async _ => await InvokeAsync(async () =>
+        {
+            await CarregarPedidos();
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+    
+    private async Task CarregarPedidos()
+    {
+        try
+        {
+            if (mostrarApenasAtivos)
+            {
+                pedidos = await PedidoService.GetPedidosAtivoAsync();
+            }
+            else
+            {
+                pedidos = await PedidoService.GetPedidosAsync();
+            }
+            
+            await FiltrarPedidos();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao carregar pedidos: {ex.Message}");
+        }
+    }
+    
+    private async Task CarregarPedidosHoje()
+    {
+        try
+        {
+            pedidos = await PedidoService.GetPedidosHojeAsync();
+            await FiltrarPedidos();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao carregar pedidos: {ex.Message}");
+        }
+    }
+    
+    private async Task FiltrarPedidos()
+    {
+        pedidosFiltrados = pedidos.AsQueryable()
+            .Where(p => string.IsNullOrEmpty(filtroStatus) || ((int)p.Status).ToString() == filtroStatus)
+            .ToList();
+            
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+    
+    private async Task AtualizarStatus(int pedidoId, StatusPedido novoStatus)
+    {
+        try
+        {
+            await PedidoService.UpdateStatusPedidoAsync(pedidoId, novoStatus);
+            await CarregarPedidos();
+            await JSRuntime.InvokeVoidAsync("alert", "Status do pedido atualizado com sucesso!");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao atualizar status: {ex.Message}");
+        }
+    }
+    
+    private async Task CancelarPedido(int pedidoId)
+    {
+        var confirmacao = await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza que deseja cancelar este pedido?");
+        if (confirmacao)
+        {
+            try
+            {
+                await PedidoService.CancelarPedidoAsync(pedidoId, "Cancelado pelo administrador");
+                await CarregarPedidos();
+                await JSRuntime.InvokeVoidAsync("alert", "Pedido cancelado com sucesso!");
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Erro ao cancelar pedido: {ex.Message}");
+            }
+        }
+    }
+    
+    private async Task VisualizarPedido(Pedido pedido)
+    {
+        try
+        {
+            pedidoSelecionado = await PedidoService.GetPedidoByIdAsync(pedido.Id);
+            mostrarModalDetalhes = true;
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Erro ao carregar detalhes do pedido: {ex.Message}");
+        }
+    }
+    
+    private void FecharModalDetalhes()
+    {
+        mostrarModalDetalhes = false;
+        pedidoSelecionado = null;
+    }
+    
+    private void AbrirModalNovoPedido()
+    {
+        // Implementar modal de novo pedido ou redirecionar para página específica
+        JSRuntime.InvokeVoidAsync("alert", "Funcionalidade de criar pedido pelo admin será implementada em breve!");
+    }
+    
+    public void Dispose()
+    {
+        timer?.Dispose();
+    }
+}
+
