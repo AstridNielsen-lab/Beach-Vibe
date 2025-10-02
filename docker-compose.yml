@@ -1,0 +1,160 @@
+# Docker Compose para AdmBeachApp - Ambiente de Desenvolvimento
+# Use: podman-compose up -d ou docker-compose up -d
+
+version: '3.8'
+
+services:
+  # Ambiente de desenvolvimento .NET MAUI
+  maui-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: admbeachapp-dev
+    volumes:
+      # Mount do código fonte para desenvolvimento
+      - .:/app
+      - dotnet-packages:/root/.nuget/packages
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+      - "7000:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000;https://+:5001
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - DOTNET_RUNNING_IN_CONTAINER=true
+    networks:
+      - admbeachapp-network
+    stdin_open: true
+    tty: true
+
+  # PostgreSQL (para substituir/complementar Supabase localmente)
+  postgres:
+    image: postgres:16-alpine
+    container_name: admbeachapp-postgres
+    environment:
+      POSTGRES_DB: admbeachapp
+      POSTGRES_USER: admbeach
+      POSTGRES_PASSWORD: dev123456
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./supabase_*.sql:/docker-entrypoint-initdb.d/
+    networks:
+      - admbeachapp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admbeach -d admbeachapp"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis (para cache e sessões)
+  redis:
+    image: redis:7-alpine
+    container_name: admbeachapp-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - admbeachapp-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # pgAdmin (interface web para PostgreSQL)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: admbeachapp-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: dev@admbeachapp.com
+      PGADMIN_DEFAULT_PASSWORD: dev123456
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - admbeachapp-network
+    depends_on:
+      - postgres
+
+  # Mailhog (servidor de email para desenvolvimento)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: admbeachapp-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - admbeachapp-network
+
+  # Nginx (proxy reverso opcional)
+  nginx:
+    image: nginx:alpine
+    container_name: admbeachapp-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+    networks:
+      - admbeachapp-network
+    depends_on:
+      - maui-dev
+    profiles:
+      - proxy
+
+  # Ambiente de testes isolado
+  maui-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: admbeachapp-test
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Testing
+      - ConnectionStrings__DefaultConnection=Host=postgres-test;Database=admbeachapp_test;Username=admbeach;Password=dev123456
+    volumes:
+      - .:/app
+    networks:
+      - admbeachapp-network
+    depends_on:
+      - postgres-test
+    profiles:
+      - testing
+    command: ["dotnet", "test", "--logger", "console"]
+
+  # PostgreSQL para testes
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: admbeachapp-postgres-test
+    environment:
+      POSTGRES_DB: admbeachapp_test
+      POSTGRES_USER: admbeach
+      POSTGRES_PASSWORD: dev123456
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks:
+      - admbeachapp-network
+    profiles:
+      - testing
+
+networks:
+  admbeachapp-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  pgadmin-data:
+    driver: local
+  dotnet-packages:
+    driver: local
