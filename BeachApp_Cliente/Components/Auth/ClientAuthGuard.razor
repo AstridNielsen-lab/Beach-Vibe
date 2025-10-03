@@ -1,0 +1,185 @@
+﻿@using BeachApp_Cliente.Services
+@using Microsoft.Extensions.Logging
+@inject IClientAuthService ClientAuthService
+@inject NavigationManager Navigation
+@inject ILogger<ClientAuthGuard> Logger
+
+@if (isLoading)
+{
+    <div class="client-auth-loading">
+        <div class="loading-spinner"></div>
+        <p>Verificando acesso...</p>
+    </div>
+}
+else if (isAuthenticated)
+{
+    @ChildContent
+}
+else
+{
+    <div class="client-auth-redirect">
+        <div class="redirect-message">
+            <div class="redirect-icon">ðŸ–ï¸</div>
+            <h3>Acesso ao CardÃ¡pio</h3>
+            <p>Para fazer pedidos, vocÃª precisa se identificar primeiro.</p>
+            <div class="redirect-info">
+                <p>Redirecionando para identificaÃ§Ã£o...</p>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .client-auth-loading, .client-auth-redirect {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 60vh;
+        padding: 40px;
+        text-align: center;
+    }
+
+    .client-auth-loading {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #f0f0f0;
+        border-top: 4px solid #ff6b6b;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .client-auth-loading p {
+        color: #666;
+        font-size: 16px;
+    }
+
+    .redirect-message {
+        text-align: center;
+        max-width: 400px;
+        background: white;
+        padding: 40px;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .redirect-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+    }
+
+    .redirect-message h3 {
+        color: #333;
+        margin-bottom: 16px;
+        font-size: 24px;
+        font-weight: 600;
+    }
+
+    .redirect-message p {
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 16px;
+        font-size: 16px;
+    }
+
+    .redirect-info {
+        background: linear-gradient(45deg, #ff6b6b, #feca57);
+        color: white;
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 20px;
+    }
+
+    .redirect-info p {
+        margin: 0;
+        color: white;
+        font-weight: 500;
+    }
+
+    /* $1100% */ transform: rotate(360deg); }
+    }
+
+    /* 
+</style>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string RedirectTo { get; set; } = "/login";
+    [Parameter] public bool RequireAuthentication { get; set; } = true;
+
+    private bool isLoading = true;
+    private bool isAuthenticated = false;
+    private ClienteInfo? currentCliente;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Logger.LogDebug("ClientAuthGuard: Verificando estado de autenticaÃ§Ã£o");
+
+            // Verificar se hÃ¡ um cliente logado
+            currentCliente = await ClientAuthService.GetCurrentClienteAsync();
+            isAuthenticated = currentCliente != null;
+
+            Logger.LogDebug($"ClientAuthGuard: Cliente autenticado: {isAuthenticated}");
+
+            // Se nÃ£o autenticado e requer autenticaÃ§Ã£o, redirecionar
+            if (RequireAuthentication && !isAuthenticated)
+            {
+                Logger.LogInformation("ClientAuthGuard: Cliente nÃ£o autenticado, redirecionando para login");
+                
+                // Pequeno delay para mostrar a mensagem antes de redirecionar
+                await Task.Delay(1500);
+                Navigation.NavigateTo(RedirectTo, replace: true);
+                return;
+            }
+
+            // Inscrever-se nas mudanÃ§as de autenticaÃ§Ã£o
+            ClientAuthService.AuthStateChanged += OnAuthStateChanged;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ClientAuthGuard: Erro ao verificar autenticaÃ§Ã£o");
+            
+            if (RequireAuthentication)
+            {
+                await Task.Delay(1000);
+                Navigation.NavigateTo(RedirectTo, replace: true);
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnAuthStateChanged(ClienteInfo? cliente)
+    {
+        var wasAuthenticated = isAuthenticated;
+        currentCliente = cliente;
+        isAuthenticated = cliente != null;
+
+        Logger.LogDebug($"ClientAuthGuard: Estado de autenticaÃ§Ã£o alterado. Autenticado: {isAuthenticated}");
+
+        // Se o cliente foi deslogado e a pÃ¡gina requer autenticaÃ§Ã£o
+        if (RequireAuthentication && wasAuthenticated && !isAuthenticated)
+        {
+            Logger.LogInformation("ClientAuthGuard: Cliente deslogado, redirecionando para login");
+            Navigation.NavigateTo(RedirectTo, replace: true);
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ClientAuthService.AuthStateChanged -= OnAuthStateChanged;
+    }
+}
+
+

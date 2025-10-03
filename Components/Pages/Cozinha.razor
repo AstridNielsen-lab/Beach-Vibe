@@ -1,0 +1,290 @@
+@page "/cozinha"
+@using AdmBeachApp.Models
+@using AdmBeachApp.Services
+@inject IEventNotificacaoService NotificacaoService
+@inject IPedidoService PedidoService
+@inject IJSRuntime JSRuntime
+@inject ILogger<Cozinha> Logger
+@implements IDisposable
+
+<PageTitle>🍳 Cozinha - AdmBeachApp</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="text-primary">
+                    <i class="bi bi-egg-fried"></i> Cozinha
+                </h1>
+                <div class="d-flex align-items-center">
+                    <span class="badge @(pedidosPendentes.Count > 0 ? "bg-warning" : "bg-success") me-2">
+                        @pedidosPendentes.Count pedido(s) pendente(s)
+                    </span>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="AtualizarPedidos">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+            </div>
+
+            @if (notificacoesRecentes.Any())
+            {
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    <h6 class="alert-heading">🔔 Notificações Recentes</h6>
+                    @foreach (var notif in notificacoesRecentes.Take(3))
+                    {
+                        <div class="small mb-1">
+                            <strong>@notif.Titulo</strong> - @notif.Mensagem
+                            <small class="text-muted">(@notif.DataCriacao.ToString("HH:mm"))</small>
+                        </div>
+                    }
+                    <button type="button" class="btn-close" @onclick="LimparNotificacoes"></button>
+                </div>
+            }
+
+            @if (loading)
+            {
+                <div class="text-center p-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-2">Carregando pedidos da cozinha...</p>
+                </div>
+            }
+            else if (!pedidosPendentes.Any())
+            {
+                <div class="text-center p-5">
+                    <i class="bi bi-check-circle-fill text-success display-1"></i>
+                    <h3 class="text-success mt-3">Todos os pedidos foram preparados!</h3>
+                    <p class="text-muted">Aguardando novos pedidos...</p>
+                </div>
+            }
+            else
+            {
+                <div class="row">
+                    @foreach (var pedido in pedidosPendentes.OrderBy(p => p.DataPedido))
+                    {
+                        <div class="col-lg-4 col-md-6 mb-4">
+                            <div class="card border-@pedido.StatusCor h-100">
+                                <div class="card-header bg-@pedido.StatusCor text-white d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="card-title mb-0">Pedido #@pedido.NumeroPedido</h5>
+                                        <small>@pedido.TempoEspera</small>
+                                    </div>
+                                    <span class="badge bg-light text-dark">@pedido.StatusTexto</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <strong>👤 Cliente:</strong> @pedido.NomeCliente<br>
+                                        <strong>🪑 Mesa:</strong> @(pedido.Mesa ?? "N/A")<br>
+                                        <strong>🕐 Horário:</strong> @pedido.DataPedido.ToString("HH:mm")
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <h6 class="fw-bold">🍽️ Itens da Cozinha:</h6>
+                                        @foreach (var item in ObterItensCozinha(pedido))
+                                        {
+                                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                                                <div>
+                                                    <strong>@item.Produto?.Nome</strong>
+                                                    <span class="badge bg-secondary ms-2">@item.Quantidade</span>
+                                                    @if (!string.IsNullOrEmpty(item.ObservacoesItem))
+                                                    {
+                                                        <div class="small text-muted mt-1">
+                                                            <i class="bi bi-chat-left-text"></i> @item.ObservacoesItem
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    @if (!string.IsNullOrEmpty(pedido.Observacoes))
+                                    {
+                                        <div class="mb-3">
+                                            <h6 class="fw-bold">📝 Observações do Pedido:</h6>
+                                            <p class="small bg-warning-subtle p-2 rounded">@pedido.Observacoes</p>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="card-footer">
+                                    <div class="btn-group w-100" role="group">
+                                        @if (pedido.Status == StatusPedido.Pendente)
+                                        {
+                                            <button class="btn btn-outline-primary" @onclick="() => IniciarPreparo(pedido.Id)">
+                                                <i class="bi bi-play-fill"></i> Iniciar Preparo
+                                            </button>
+                                        }
+                                        else if (pedido.Status == StatusPedido.Preparando)
+                                        {
+                                            <button class="btn btn-success" @onclick="() => MarcarComoPronto(pedido.Id)">
+                                                <i class="bi bi-check-lg"></i> Pronto!
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Pedido> pedidosPendentes = new();
+    private List<PedidoNotificacao> notificacoesRecentes = new();
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Logger.LogInformation("Iniciando carregamento da página de cozinha...");
+            
+            // Iniciar escuta das notificações da cozinha
+            NotificacaoService.IniciarEscutaSetor(TipoSetor.Cozinha);
+            NotificacaoService.NotificacaoRecebida += OnNotificacaoRecebida;
+
+            await AtualizarPedidos();
+            await CarregarNotificacoes();
+            
+            Logger.LogInformation("Página de cozinha carregada com sucesso");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro crítico ao inicializar página de cozinha");
+            await JSRuntime.InvokeVoidAsync("showToast", "error", "Erro!", "Falha ao carregar a página da cozinha. Tente recarregar.");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async void OnNotificacaoRecebida(object? sender, PedidoNotificacaoEventArgs e)
+    {
+        try
+        {
+            // Verificar se a notificação é relevante para a cozinha
+            if (e.SetorDestino == TipoSetor.Cozinha || e.SetorDestino == TipoSetor.Todos)
+            {
+                Logger.LogInformation($"Nova notificação recebida para cozinha: {e.Notificacao.Titulo}");
+                
+                notificacoesRecentes.Insert(0, e.Notificacao);
+                
+                // Manter apenas as 10 notificações mais recentes
+                if (notificacoesRecentes.Count > 10)
+                {
+                    notificacoesRecentes = notificacoesRecentes.Take(10).ToList();
+                }
+
+                // Atualizar lista de pedidos
+                await AtualizarPedidos();
+                
+                // Tocar som de notificação
+                await JSRuntime.InvokeVoidAsync("playNotificationSound");
+                
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro ao processar notificação na cozinha");
+        }
+    }
+
+    private async Task AtualizarPedidos()
+    {
+        try
+        {
+            var todosPedidos = await PedidoService.GetPedidosAsync();
+            
+            // Filtrar pedidos que têm itens da cozinha e não estão entregues
+            pedidosPendentes = todosPedidos
+                .Where(p => p.Status != StatusPedido.Entregue && p.Status != StatusPedido.Cancelado)
+                .Where(p => ObterItensCozinha(p).Any())
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro ao atualizar pedidos da cozinha");
+        }
+    }
+
+    private async Task CarregarNotificacoes()
+    {
+        try
+        {
+            notificacoesRecentes = await NotificacaoService.ObterNotificacoesPorSetor(TipoSetor.Cozinha);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro ao carregar notificações da cozinha");
+        }
+    }
+
+    private List<ItemPedido> ObterItensCozinha(Pedido pedido)
+    {
+        try
+        {
+            if (pedido?.Itens == null)
+                return new List<ItemPedido>();
+                
+            return pedido.Itens
+                .Where(i => i?.Produto != null && i.Produto.DeterminarSetor() == TipoSetor.Cozinha)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, $"Erro ao obter itens da cozinha para pedido {pedido?.Id}");
+            return new List<ItemPedido>();
+        }
+    }
+
+    private async Task IniciarPreparo(int pedidoId)
+    {
+        try
+        {
+            await PedidoService.UpdateStatusAsync(pedidoId, StatusPedido.Preparando);
+            await NotificacaoService.NotificarStatusPedido(pedidoId, StatusPedido.Preparando);
+            await AtualizarPedidos();
+            
+            await JSRuntime.InvokeVoidAsync("showToast", "success", "Preparo iniciado!", "O pedido foi marcado como em preparo.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, $"Erro ao iniciar preparo do pedido {pedidoId}");
+            await JSRuntime.InvokeVoidAsync("showToast", "error", "Erro!", "Não foi possível iniciar o preparo.");
+        }
+    }
+
+    private async Task MarcarComoPronto(int pedidoId)
+    {
+        try
+        {
+            await PedidoService.UpdateStatusAsync(pedidoId, StatusPedido.Pronto);
+            await NotificacaoService.NotificarStatusPedido(pedidoId, StatusPedido.Pronto);
+            await AtualizarPedidos();
+            
+            await JSRuntime.InvokeVoidAsync("showToast", "success", "Pedido pronto!", "O pedido foi marcado como pronto para entrega.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, $"Erro ao marcar pedido {pedidoId} como pronto");
+            await JSRuntime.InvokeVoidAsync("showToast", "error", "Erro!", "Não foi possível marcar como pronto.");
+        }
+    }
+
+    private void LimparNotificacoes()
+    {
+        notificacoesRecentes.Clear();
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NotificacaoService.PararEscutaSetor(TipoSetor.Cozinha);
+        NotificacaoService.NotificacaoRecebida -= OnNotificacaoRecebida;
+    }
+}

@@ -68,6 +68,13 @@ publish/
 *.key
 *.pem
 
+# Diretórios temporários pesados
+# Evita subir JDKs e pacotes baixados localmente
+temp/
+BeachApp_Cliente/temp/
+BeachApp_Cliente/**/temp/
+BeachApp_Cliente/temp/*.zip
+
 # Exceções: manter artefatos em releases/
 !releases/**
 !releases/**/*.apk

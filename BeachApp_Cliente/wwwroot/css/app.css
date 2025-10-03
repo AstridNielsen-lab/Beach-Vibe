@@ -1,0 +1,168 @@
+html, body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+.loading-splash {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.loading-content {
+    text-align: center;
+    color: white;
+}
+
+.loading-content h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.status-bar-safe-area {
+    display: block;
+    position: relative;
+    height: env(safe-area-inset-top);
+    background-color: #6366f1;
+}
+
+#blazor-error-ui {
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }
+
+.card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    border-radius: 15px 15px 0 0 !important;
+    border-bottom: none;
+}
+
+.btn {
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.form-control, .form-select {
+    border-radius: 10px;
+    border: 2px solid #e9ecef;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.8rem;
+    border-radius: 10px;
+}
+
+.shadow-lg {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+}
+
+.shadow {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+.shadow-sm {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Responsividade para mobile */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 0.5rem;
+    }
+    
+    .display-4 {
+        font-size: 2rem;
+    }
+    
+    .lead {
+        font-size: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    h5.card-title {
+        font-size: 1.1rem;
+    }
+}
+
+/* Tema de praia */
+:root {
+    --beach-primary: #0072CE;
+    --beach-secondary: #00A8CC;
+    --beach-accent: #FFA500;
+    --beach-success: #28a745;
+    --beach-warning: #ffc107;
+    --beach-danger: #dc3545;
+}
+
+.bg-primary {
+    background-color: var(--beach-primary) !important;
+}
+
+.bg-success {
+    background-color: var(--beach-success) !important;
+}
+
+.text-primary {
+    color: var(--beach-primary) !important;
+}
+
+.text-success {
+    color: var(--beach-success) !important;
+}
+
+.btn-primary {
+    background-color: var(--beach-primary);
+    border-color: var(--beach-primary);
+}
+
+.btn-primary:hover {
+    background-color: #005fa3;
+    border-color: #005fa3;
+}
+
+.btn-success {
+    background-color: var(--beach-success);
+    border-color: var(--beach-success);
+}
+
+.btn-success:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}

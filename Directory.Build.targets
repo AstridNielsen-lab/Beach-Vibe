@@ -1,0 +1,13 @@
+<Project>
+  <ItemGroup>
+    <!-- Excluir completamente a pasta BeachApp_Cliente -->
+    <Compile Remove="BeachApp_Cliente/**/*" />
+    <Content Remove="BeachApp_Cliente/**/*" />
+    <None Remove="BeachApp_Cliente/**/*" />
+    <EmbeddedResource Remove="BeachApp_Cliente/**/*" />
+    <RazorComponent Remove="BeachApp_Cliente/**/*.razor" />
+    <Page Remove="BeachApp_Cliente/**/*.razor" />
+    <MauiXaml Remove="BeachApp_Cliente/**/*.xaml" />
+    <_ContentIncludedByDefault Remove="BeachApp_Cliente/**/*" />
+  </ItemGroup>
+</Project>

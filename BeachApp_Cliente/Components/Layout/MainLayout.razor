@@ -1,0 +1,148 @@
+﻿@using BeachApp_Cliente.Services
+@inject IClientAuthService ClientAuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inherits LayoutComponentBase
+@implements IDisposable
+
+<div class="page">
+    <!-- Barra superior com informaÃ§Ãµes do cliente (apenas se logado) -->
+    @if (clienteLogado != null)
+    {
+        <div class="client-header">
+            <div class="client-info">
+                <span class="client-icon">ðŸ‘‹</span>
+                <span class="client-name">OlÃ¡, @clienteLogado.Nome!</span>
+                @if (!string.IsNullOrEmpty(clienteLogado.Mesa))
+                {
+                    <span class="client-location">ðŸ“ @clienteLogado.Mesa</span>
+                }
+            </div>
+            <button class="logout-btn" @onclick="Logout" title="Sair">
+                ðŸšª Sair
+            </button>
+        </div>
+    }
+    
+    <main>
+        @Body
+    </main>
+</div>
+
+<style>
+    .page {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    main {
+        flex: 1;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background-attachment: fixed;
+        padding: 1rem;
+        min-height: 100vh;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .client-header {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        padding: 12px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+
+    .client-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .client-icon {
+        font-size: 20px;
+    }
+
+    .client-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 16px;
+    }
+
+    .client-location {
+        font-size: 14px;
+        color: #666;
+        background: #f0f0f0;
+        padding: 4px 8px;
+        border-radius: 12px;
+    }
+
+    .logout-btn {
+        background: linear-gradient(45deg, #ff6b6b, #feca57);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .logout-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+    }
+
+    
+</style>
+
+@code {
+    private ClienteInfo? clienteLogado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Carregar cliente atual
+        clienteLogado = await ClientAuthService.GetCurrentClienteAsync();
+        
+        // Inscrever-se nas mudanÃ§as de autenticaÃ§Ã£o
+        ClientAuthService.AuthStateChanged += OnAuthStateChanged;
+    }
+
+    private void OnAuthStateChanged(ClienteInfo? cliente)
+    {
+        clienteLogado = cliente;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task Logout()
+    {
+        var confirmLogout = await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza que deseja sair?");
+        if (confirmLogout)
+        {
+            await ClientAuthService.LogoutAsync();
+            Navigation.NavigateTo("/login", replace: true);
+        }
+    }
+
+    public void Dispose()
+    {
+        ClientAuthService.AuthStateChanged -= OnAuthStateChanged;
+    }
+}
+

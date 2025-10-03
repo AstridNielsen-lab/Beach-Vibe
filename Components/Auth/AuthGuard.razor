@@ -1,0 +1,170 @@
+@using AdmBeachApp.Services
+@using Supabase.Gotrue
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@inject ILogger<AuthGuard> Logger
+
+@if (isLoading)
+{
+    <div class="auth-guard-loading">
+        <div class="loading-spinner"></div>
+        <p>Verificando autenticação...</p>
+    </div>
+}
+else if (isAuthenticated)
+{
+    @ChildContent
+}
+else
+{
+    <div class="auth-guard-redirect">
+        <div class="redirect-message">
+            <div class="redirect-icon">🔒</div>
+            <h3>Acesso Restrito</h3>
+            <p>Você precisa estar logado para acessar esta página.</p>
+            <div class="redirect-info">
+                <p>Redirecionando para login...</p>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .auth-guard-loading, .auth-guard-redirect {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 60vh;
+        padding: 40px;
+    }
+
+    .auth-guard-loading {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #f0f0f0;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .redirect-message {
+        text-align: center;
+        max-width: 400px;
+    }
+
+    .redirect-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+    }
+
+    .redirect-message h3 {
+        color: #333;
+        margin-bottom: 16px;
+        font-size: 24px;
+    }
+
+    .redirect-message p {
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 16px;
+    }
+
+    .redirect-info {
+        background: #f8f9fa;
+        padding: 16px;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+    }
+
+    .redirect-info p {
+        margin: 0;
+        color: #667eea;
+        font-weight: 500;
+    }
+
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string RedirectTo { get; set; } = "/login";
+    [Parameter] public bool RequireAuthentication { get; set; } = true;
+
+    private bool isLoading = true;
+    private bool isAuthenticated = false;
+    private User? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Logger.LogDebug("AuthGuard: Verificando estado de autenticação");
+
+            // Verificar se há um usuário logado
+            currentUser = await AuthService.GetCurrentUserAsync();
+            isAuthenticated = currentUser != null;
+
+            Logger.LogDebug($"AuthGuard: Usuário autenticado: {isAuthenticated}");
+
+            // Se não autenticado e requer autenticação, redirecionar
+            if (RequireAuthentication && !isAuthenticated)
+            {
+                Logger.LogInformation("AuthGuard: Usuário não autenticado, redirecionando para login");
+                
+                // Pequeno delay para mostrar a mensagem antes de redirecionar
+                await Task.Delay(1500);
+                Navigation.NavigateTo(RedirectTo, replace: true);
+                return;
+            }
+
+            // Inscrever-se nas mudanças de autenticação
+            AuthService.AuthStateChanged += OnAuthStateChanged;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AuthGuard: Erro ao verificar autenticação");
+            
+            if (RequireAuthentication)
+            {
+                await Task.Delay(1000);
+                Navigation.NavigateTo(RedirectTo, replace: true);
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnAuthStateChanged(User? user)
+    {
+        var wasAuthenticated = isAuthenticated;
+        currentUser = user;
+        isAuthenticated = user != null;
+
+        Logger.LogDebug($"AuthGuard: Estado de autenticação alterado. Autenticado: {isAuthenticated}");
+
+        // Se o usuário foi deslogado e a página requer autenticação
+        if (RequireAuthentication && wasAuthenticated && !isAuthenticated)
+        {
+            Logger.LogInformation("AuthGuard: Usuário deslogado, redirecionando para login");
+            Navigation.NavigateTo(RedirectTo, replace: true);
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AuthService.AuthStateChanged -= OnAuthStateChanged;
+    }
+}

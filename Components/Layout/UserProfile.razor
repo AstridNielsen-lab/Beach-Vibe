@@ -1,0 +1,410 @@
+@using AdmBeachApp.Services
+@using Supabase.Gotrue
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@inject ILogger<UserProfile> Logger
+
+@if (currentUser != null)
+{
+    <div class="user-profile">
+        <div class="user-info" @onclick="ToggleDropdown">
+            @if (!string.IsNullOrEmpty(avatarUrl))
+            {
+                <img src="@avatarUrl" alt="Avatar" class="user-avatar" />
+            }
+            else
+            {
+                <div class="user-avatar-placeholder">
+                    @GetUserInitials()
+                </div>
+            }
+            <div class="user-details">
+                <span class="user-name">@GetUserName()</span>
+                <span class="user-email">@currentUser.Email</span>
+            </div>
+            <div class="dropdown-arrow @(isDropdownOpen ? "open" : "")">▼</div>
+        </div>
+
+        @if (isDropdownOpen)
+        {
+            <div class="user-dropdown">
+                <div class="dropdown-header">
+                    <div class="user-info-extended">
+                        @if (!string.IsNullOrEmpty(avatarUrl))
+                        {
+                            <img src="@avatarUrl" alt="Avatar" class="dropdown-avatar" />
+                        }
+                        else
+                        {
+                            <div class="dropdown-avatar-placeholder">
+                                @GetUserInitials()
+                            </div>
+                        }
+                        <div class="user-text">
+                            <strong>@GetUserName()</strong>
+                            <span>@currentUser.Email</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dropdown-divider"></div>
+                
+                <div class="dropdown-items">
+                    <button class="dropdown-item" @onclick="ViewProfile">
+                        <i class="item-icon">👤</i>
+                        Meu Perfil
+                    </button>
+                    
+                    <button class="dropdown-item" @onclick="ViewSettings">
+                        <i class="item-icon">⚙️</i>
+                        Configurações
+                    </button>
+                    
+                    <div class="dropdown-divider"></div>
+                    
+                    <button class="dropdown-item logout-item" @onclick="Logout" disabled="@isLoggingOut">
+                        <i class="item-icon">🚪</i>
+                        @if (isLoggingOut)
+                        {
+                            <span>Saindo...</span>
+                        }
+                        else
+                        {
+                            <span>Sair</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="login-prompt">
+        <button class="login-button" @onclick="GoToLogin">
+            Fazer Login
+        </button>
+    </div>
+}
+
+<style>
+    .user-profile {
+        position: relative;
+        display: inline-block;
+    }
+
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 16px;
+        border-radius: 25px;
+        background: rgba(255, 255, 255, 0.1);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .user-info:hover {
+        background: rgba(255, 255, 255, 0.15);
+        transform: translateY(-1px);
+    }
+
+    .user-avatar, .dropdown-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .user-avatar-placeholder, .dropdown-avatar-placeholder {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .user-details {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        color: white;
+    }
+
+    .user-name {
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .user-email {
+        font-size: 12px;
+        opacity: 0.8;
+    }
+
+    .dropdown-arrow {
+        color: white;
+        font-size: 12px;
+        transition: transform 0.3s ease;
+        margin-left: 8px;
+    }
+
+    .dropdown-arrow.open {
+        transform: rotate(180deg);
+    }
+
+    .user-dropdown {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        min-width: 280px;
+        z-index: 1000;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .dropdown-header {
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+    }
+
+    .user-info-extended {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .user-text {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .user-text strong {
+        font-size: 16px;
+    }
+
+    .user-text span {
+        font-size: 13px;
+        opacity: 0.9;
+    }
+
+    .dropdown-divider {
+        height: 1px;
+        background: #e2e8f0;
+        margin: 0;
+    }
+
+    .dropdown-items {
+        padding: 8px 0;
+    }
+
+    .dropdown-item {
+        width: 100%;
+        padding: 12px 20px;
+        border: none;
+        background: none;
+        text-align: left;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #333;
+        font-size: 14px;
+    }
+
+    .dropdown-item:hover {
+        background: #f7fafc;
+    }
+
+    .logout-item:hover {
+        background: #fed7d7;
+        color: #e53e3e;
+    }
+
+    .logout-item:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .item-icon {
+        font-size: 16px;
+        width: 20px;
+        text-align: center;
+    }
+
+    .login-prompt {
+        display: flex;
+        align-items: center;
+    }
+
+    .login-button {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        padding: 10px 20px;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .login-button:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-1px);
+    }
+
+    @@media (max-width: 768px) {
+        .user-details {
+            display: none;
+        }
+        
+        .user-dropdown {
+            min-width: 250px;
+        }
+        
+        .user-info {
+            padding: 8px 12px;
+        }
+    }
+</style>
+
+@code {
+    private User? currentUser;
+    private string avatarUrl = "";
+    private bool isDropdownOpen = false;
+    private bool isLoggingOut = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCurrentUser();
+        
+        // Inscrever-se nas mudanças de autenticação
+        AuthService.AuthStateChanged += OnAuthStateChanged;
+    }
+
+    private async Task LoadCurrentUser()
+    {
+        currentUser = await AuthService.GetCurrentUserAsync();
+        if (currentUser?.UserMetadata != null)
+        {
+            avatarUrl = currentUser.UserMetadata.ContainsKey("avatar_url") ? 
+                       currentUser.UserMetadata["avatar_url"]?.ToString() ?? "" : "";
+        }
+        StateHasChanged();
+    }
+
+    private void OnAuthStateChanged(User? user)
+    {
+        currentUser = user;
+        if (currentUser?.UserMetadata != null)
+        {
+            avatarUrl = currentUser.UserMetadata.ContainsKey("avatar_url") ? 
+                       currentUser.UserMetadata["avatar_url"]?.ToString() ?? "" : "";
+        }
+        else
+        {
+            avatarUrl = "";
+        }
+        
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string GetUserName()
+    {
+        if (currentUser?.UserMetadata != null && currentUser.UserMetadata.ContainsKey("full_name"))
+        {
+            return currentUser.UserMetadata["full_name"]?.ToString() ?? "Usuário";
+        }
+        
+        return currentUser?.Email?.Split('@')[0] ?? "Usuário";
+    }
+
+    private string GetUserInitials()
+    {
+        var name = GetUserName();
+        if (name.Contains(' '))
+        {
+            var parts = name.Split(' ');
+            return $"{parts[0][0]}{parts[parts.Length - 1][0]}".ToUpper();
+        }
+        return name.Length > 0 ? name.Substring(0, Math.Min(2, name.Length)).ToUpper() : "U";
+    }
+
+    private void ToggleDropdown()
+    {
+        isDropdownOpen = !isDropdownOpen;
+        StateHasChanged();
+    }
+
+    private void ViewProfile()
+    {
+        isDropdownOpen = false;
+        // Implementar navegação para perfil
+        Logger.LogInformation("Visualizar perfil solicitado");
+    }
+
+    private void ViewSettings()
+    {
+        isDropdownOpen = false;
+        // Implementar navegação para configurações
+        Logger.LogInformation("Configurações solicitadas");
+    }
+
+    private async Task Logout()
+    {
+        try
+        {
+            isLoggingOut = true;
+            isDropdownOpen = false;
+            StateHasChanged();
+
+            await AuthService.LogoutAsync();
+            Logger.LogInformation("Logout realizado com sucesso");
+            
+            Navigation.NavigateTo("/login", replace: true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro durante logout");
+        }
+        finally
+        {
+            isLoggingOut = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoToLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        AuthService.AuthStateChanged -= OnAuthStateChanged;
+    }
+
+    // Fechar dropdown quando clicar fora
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Implementar listener para click outside se necessário
+        }
+        return Task.CompletedTask;
+    }
+}

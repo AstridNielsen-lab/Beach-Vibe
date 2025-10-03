@@ -1,0 +1,296 @@
+@using AdmBeachApp.Services
+@inject IGoogleClientAuthService GoogleClientAuthService
+@inject NavigationManager Navigation
+@inject ILogger<ClientAuthGuard> Logger
+
+@if (isLoading)
+{
+    <div class="client-auth-loading">
+        <div class="loading-spinner"></div>
+        <p>Verificando sua autenticação...</p>
+    </div>
+}
+else if (isClientAuthenticated)
+{
+    @ChildContent
+}
+else
+{
+    <div class="client-auth-login">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="login-icon">🏖️</div>
+                <h2>Bem-vindo ao Quiosque da Praia!</h2>
+                <p>Para fazer pedidos, você precisa se identificar com sua conta Google.</p>
+            </div>
+            
+            <div class="login-benefits">
+                <h5>Por que usar o Google?</h5>
+                <ul class="benefit-list">
+                    <li>✓ Login rápido e seguro</li>
+                    <li>✓ Seus pedidos ficam salvos</li>
+                    <li>✓ Acompanhe o status em tempo real</li>
+                    <li>✓ Histórico de compras</li>
+                </ul>
+            </div>
+            
+            <div class="login-actions">
+                <button class="btn btn-google" @onclick="LoginWithGoogle" disabled="@isLoggingIn">
+                    @if (isLoggingIn)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <span>Conectando...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-google me-2"></i>
+                        <span>Entrar com Google</span>
+                    }
+                </button>
+                
+                <div class="login-alternative mt-3">
+                    <small class="text-muted">
+                        Não quer usar o Google? 
+                        <button class="btn btn-link p-0" @onclick="UseSimpleLogin">
+                            Clique aqui para login simples
+                        </button>
+                    </small>
+                </div>
+            </div>
+            
+            <div class="login-footer">
+                <small class="text-muted">
+                    Ao fazer login, você concorda com nossos termos de uso.
+                </small>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .client-auth-loading, .client-auth-login {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 70vh;
+        padding: 20px;
+    }
+
+    .client-auth-loading {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #f0f0f0;
+        border-top: 4px solid #4285f4;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .login-container {
+        background: white;
+        border-radius: 12px;
+        padding: 40px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        max-width: 400px;
+        width: 100%;
+        text-align: center;
+    }
+
+    .login-header {
+        margin-bottom: 30px;
+    }
+
+    .login-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+
+    .login-header h2 {
+        color: #333;
+        margin-bottom: 12px;
+        font-size: 24px;
+    }
+
+    .login-header p {
+        color: #666;
+        line-height: 1.5;
+        margin-bottom: 0;
+    }
+
+    .login-benefits {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 30px;
+        text-align: left;
+    }
+
+    .login-benefits h5 {
+        color: #333;
+        margin-bottom: 12px;
+        font-size: 16px;
+    }
+
+    .benefit-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .benefit-list li {
+        color: #555;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+
+    .btn-google {
+        background: #4285f4;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 16px;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+    }
+
+    .btn-google:hover:not(:disabled) {
+        background: #3367d6;
+    }
+
+    .btn-google:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .login-alternative {
+        text-align: center;
+    }
+
+    .login-alternative .btn-link {
+        color: #4285f4;
+        text-decoration: none;
+        font-size: 12px;
+    }
+
+    .login-alternative .btn-link:hover {
+        text-decoration: underline;
+    }
+
+    .login-footer {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+    }
+
+    .login-footer small {
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    @@media (max-width: 480px) {
+        .login-container {
+            padding: 30px 20px;
+            margin: 0 10px;
+        }
+    }
+</style>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool isLoading = true;
+    private bool isClientAuthenticated = false;
+    private bool isLoggingIn = false;
+    private GoogleClientInfo? currentClient;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Logger.LogDebug("ClientAuthGuard: Verificando estado de autenticação do cliente");
+
+            // Verificar se há um cliente logado
+            currentClient = await GoogleClientAuthService.GetCurrentClientAsync();
+            isClientAuthenticated = currentClient != null;
+
+            Logger.LogDebug($"ClientAuthGuard: Cliente autenticado: {isClientAuthenticated}");
+
+            // Inscrever-se nas mudanças de autenticação
+            GoogleClientAuthService.ClientAuthStateChanged += OnClientAuthStateChanged;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ClientAuthGuard: Erro ao verificar autenticação do cliente");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnClientAuthStateChanged(GoogleClientInfo? client)
+    {
+        var wasAuthenticated = isClientAuthenticated;
+        currentClient = client;
+        isClientAuthenticated = client != null;
+
+        Logger.LogDebug($"ClientAuthGuard: Estado de autenticação do cliente alterado. Autenticado: {isClientAuthenticated}");
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoginWithGoogle()
+    {
+        if (isLoggingIn) return;
+
+        try
+        {
+            isLoggingIn = true;
+            StateHasChanged();
+
+            Logger.LogInformation("ClientAuthGuard: Iniciando login com Google");
+
+            var client = await GoogleClientAuthService.LoginWithGoogleAsync();
+            if (client != null)
+            {
+                Logger.LogInformation($"ClientAuthGuard: Login realizado com sucesso para {client.Email}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ClientAuthGuard: Erro durante login com Google");
+            // TODO: Mostrar mensagem de erro para o usuário
+        }
+        finally
+        {
+            isLoggingIn = false;
+            StateHasChanged();
+        }
+    }
+
+    private void UseSimpleLogin()
+    {
+        // Navegar para a página de cliente atual (que não requer Google Auth)
+        Navigation.NavigateTo("/cliente-simples");
+    }
+
+    public void Dispose()
+    {
+        GoogleClientAuthService.ClientAuthStateChanged -= OnClientAuthStateChanged;
+    }
+}

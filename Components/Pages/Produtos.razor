@@ -1,10 +1,12 @@
 @page "/produtos"
 @using AdmBeachApp.Services
 @using AdmBeachApp.Models
+@using AdmBeachApp.Components.Auth
 @inject IProdutoService ProdutoService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Produtos - AdmBeachApp</PageTitle>
+
 
 <div class="container-fluid">
     <div class="row mb-4">
@@ -344,4 +346,5 @@
         JSRuntime.InvokeVoidAsync("alert", "Funcionalidade de ajuste de estoque será implementada em breve!");
     }
 }
+
 

@@ -41,7 +41,10 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./supabase_*.sql:/docker-entrypoint-initdb.d/
+      - ./supabase_01_tabelas.sql:/docker-entrypoint-initdb.d/01_tabelas.sql
+      - ./supabase_02_indices_dados.sql:/docker-entrypoint-initdb.d/02_indices_dados.sql
+      - ./supabase_03_seguranca.sql:/docker-entrypoint-initdb.d/03_seguranca.sql
+      - ./supabase_tables.sql:/docker-entrypoint-initdb.d/04_tables.sql
     networks:
       - admbeachapp-network
     healthcheck:

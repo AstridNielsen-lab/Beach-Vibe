@@ -1,8 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
     <PropertyGroup>
-        <TargetFrameworks>net9.0-android;net9.0-ios;net9.0-maccatalyst</TargetFrameworks>
-        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net9.0-windows10.0.19041.0</TargetFrameworks>
+        <!-- TargetFrameworks originais comentados temporariamente para compilar apenas Windows -->
+        <!-- <TargetFrameworks>net9.0-android;net9.0-ios;net9.0-maccatalyst</TargetFrameworks> -->
+        <!-- <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net9.0-windows10.0.19041.0</TargetFrameworks> -->
+        
+        <!-- Configuração: Windows e Android -->
+        <TargetFrameworks>net9.0-android;net9.0-windows10.0.19041.0</TargetFrameworks>
         <!-- Uncomment to also build the tizen app. You will need to install tizen by following this: https://github.com/Samsung/Tizen.NET -->
         <!-- <TargetFrameworks>$(TargetFrameworks);net9.0-tizen</TargetFrameworks> -->
 
@@ -28,11 +32,15 @@
         <ApplicationId>com.companyname.admbeachapp</ApplicationId>
 
         <!-- Versions -->
-        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-        <ApplicationVersion>1</ApplicationVersion>
+        <ApplicationDisplayVersion>1.0.1</ApplicationDisplayVersion>
+        <ApplicationVersion>2</ApplicationVersion>
+        
+        <!-- MSIX bundle padrão para Windows -->
+        <GenerateAppxBundle>Always</GenerateAppxBundle>
+        <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
 
         <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
-        <WindowsPackageType>None</WindowsPackageType>
+        <WindowsPackageType>MSIX</WindowsPackageType>
 
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
@@ -61,12 +69,34 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="9.0.5" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="9.0.5" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'" />
         <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.5" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.5" />
         <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0" />
+        <PackageReference Include="Supabase" Version="1.1.1" />
+    </ItemGroup>
+    
+    <!-- Excluir pasta BeachApp_Cliente da compilação -->
+    <ItemGroup>
+        <Compile Remove="BeachApp_Cliente\**" />
+        <Content Remove="BeachApp_Cliente\**" />
+        <EmbeddedResource Remove="BeachApp_Cliente\**" />
+        <None Remove="BeachApp_Cliente\**" />
+        <MauiXaml Remove="BeachApp_Cliente\**" />
+        <_ContentWithTargetPath Remove="BeachApp_Cliente\**" />
+    </ItemGroup>
+    
+    <!-- Excluir especificamente arquivos Razor da pasta BeachApp_Cliente -->
+    <ItemGroup>
+        <RazorComponent Remove="BeachApp_Cliente\**\*.razor" />
+        <Page Remove="BeachApp_Cliente\**\*.razor" />
+    </ItemGroup>
+    
+    <!-- Using global para tipos comuns -->
+    <ItemGroup>
+        <Using Include="Microsoft.Extensions.Logging" />
     </ItemGroup>
 
 </Project>

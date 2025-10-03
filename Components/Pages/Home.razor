@@ -1,10 +1,12 @@
 @page "/"
 @using AdmBeachApp.Services
 @using AdmBeachApp.Models
+@using AdmBeachApp.Components.Auth
 @inject IProdutoService ProdutoService
 @inject IVendaService VendaService
 
 <PageTitle>AdmBeachApp - Dashboard</PageTitle>
+
 
 <div class="container-fluid">
     <div class="row mb-4">
@@ -197,3 +199,4 @@
         }
     }
 }
+

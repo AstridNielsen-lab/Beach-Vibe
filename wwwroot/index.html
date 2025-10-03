@@ -25,6 +25,87 @@
     </div>
 
     <script src="_framework/blazor.webview.js" autostart="false"></script>
+    
+    <!-- Scripts para notificações e toasts -->
+    <script>
+        // Função para tocar som de notificação
+        window.playNotificationSound = () => {
+            try {
+                // Usando API de Audio se disponível
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.5);
+            } catch (e) {
+                console.log('Não foi possível tocar som de notificação:', e);
+            }
+        };
+        
+        // Função para mostrar toasts
+        window.showToast = (type, title, message) => {
+            // Remove toast anterior se existir
+            const existingToast = document.getElementById('notification-toast');
+            if (existingToast) {
+                existingToast.remove();
+            }
+            
+            // Criar toast
+            const toast = document.createElement('div');
+            toast.id = 'notification-toast';
+            toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+            toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            toast.innerHTML = `
+                <strong>${title}</strong><br>
+                ${message}
+                <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            // Auto remove após 5 segundos
+            setTimeout(() => {
+                if (toast && toast.parentElement) {
+                    toast.remove();
+                }
+            }, 5000);
+        };
+        
+        // Função para vibração (dispositivos móveis)
+        window.vibrate = (pattern = [200]) => {
+            if (navigator.vibrate) {
+                navigator.vibrate(pattern);
+            }
+        };
+        
+        // Função para solicitar permissão de notificação
+        window.requestNotificationPermission = async () => {
+            if ('Notification' in window && Notification.permission !== 'granted') {
+                await Notification.requestPermission();
+            }
+        };
+        
+        // Função para notificação nativa do sistema
+        window.showSystemNotification = (title, message, icon = null) => {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, {
+                    body: message,
+                    icon: icon || '/favicon.ico',
+                    badge: '/favicon.ico',
+                    tag: 'beach-app-notification',
+                    requireInteraction: false
+                });
+            }
+        };
+    </script>
 
 </body>
 

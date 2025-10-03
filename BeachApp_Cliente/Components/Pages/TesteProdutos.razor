@@ -1,0 +1,116 @@
+@page "/teste-produtos"
+@using BeachApp_Cliente.Services
+@using BeachApp_Cliente.Models
+@inject IProdutoService ProdutoService
+
+<PageTitle>Teste - Produtos</PageTitle>
+
+<div class="container">
+    <h1>Teste de Carregamento de Produtos</h1>
+    
+    <button class="btn btn-primary mb-3" @onclick="TestarCarregamento">
+        Testar Carregamento
+    </button>
+    
+    @if (isLoading)
+    {
+        <div class="alert alert-info">
+            ⏳ Carregando produtos...
+        </div>
+    }
+    
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            ❌ Erro: @errorMessage
+        </div>
+    }
+    
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success">
+            ✅ @successMessage
+        </div>
+    }
+    
+    <div class="row">
+        <div class="col-md-6">
+            <h3>Produtos Estáticos (Teste)</h3>
+            @foreach (var produto in produtosEstaticos)
+            {
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <h5>@produto.Nome</h5>
+                        <p>@produto.Descricao</p>
+                        <p><strong>@produto.Preco.ToString("C")</strong></p>
+                    </div>
+                </div>
+            }
+        </div>
+        
+        <div class="col-md-6">
+            <h3>Produtos do Banco (@produtosBanco.Count)</h3>
+            @foreach (var produto in produtosBanco)
+            {
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <h5>@produto.Nome</h5>
+                        <p>@produto.Descricao</p>
+                        <p><strong>@produto.Preco.ToString("C")</strong></p>
+                        <small class="text-muted">Estoque: @produto.QuantidadeEstoque</small>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isLoading = false;
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+    private List<Produto> produtosBanco = new();
+    
+    private List<Produto> produtosEstaticos = new()
+    {
+        new Produto { Id = 1, Nome = "Água de Coco", Descricao = "Água de coco gelada", Preco = 8.00m },
+        new Produto { Id = 2, Nome = "Caipirinha", Descricao = "Caipirinha tradicional", Preco = 15.00m },
+        new Produto { Id = 3, Nome = "Açaí", Descricao = "Açaí na tigela", Preco = 18.00m }
+    };
+    
+    private async Task TestarCarregamento()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        StateHasChanged();
+        
+        try
+        {
+            System.Diagnostics.Debug.WriteLine("Teste: Iniciando carregamento...");
+            
+            produtosBanco = await ProdutoService.GetProdutosDisponiveisAsync();
+            
+            System.Diagnostics.Debug.WriteLine($"Teste: {produtosBanco.Count} produtos carregados");
+            
+            if (produtosBanco.Count > 0)
+            {
+                successMessage = $"{produtosBanco.Count} produtos carregados com sucesso!";
+            }
+            else
+            {
+                errorMessage = "Nenhum produto encontrado no banco.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erro: {ex.Message}";
+            System.Diagnostics.Debug.WriteLine($"Teste: Erro - {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+}

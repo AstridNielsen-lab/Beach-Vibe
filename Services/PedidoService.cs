@@ -17,6 +17,7 @@ namespace AdmBeachApp.Services
         Task<decimal> GetTotalPedidosHojeAsync();
         Task<string> GerarNumeroPedidoAsync();
         Task<bool> CancelarPedidoAsync(int pedidoId, string motivo = "");
+        Task UpdateStatusAsync(int pedidoId, StatusPedido novoStatus);
     }
     
     public class PedidoService : IPedidoService
@@ -194,6 +195,11 @@ namespace AdmBeachApp.Services
             
             await _context.SaveChangesAsync();
             return true;
+        }
+        
+        public async Task UpdateStatusAsync(int pedidoId, StatusPedido novoStatus)
+        {
+            await UpdateStatusPedidoAsync(pedidoId, novoStatus);
         }
     }
 }

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using AdmBeachApp.Data;
 using AdmBeachApp.Services;
+using Supabase;
 
 namespace AdmBeachApp;
 
@@ -19,18 +20,48 @@ public static class MauiProgram
 
 		builder.Services.AddMauiBlazorWebView();
 		
-		// Configurar Entity Framework
+		// Configurar Entity Framework (mantido para fallback)
 		var dbPath = Path.Combine(FileSystem.AppDataDirectory, "beachapp.db");
 		builder.Services.AddDbContext<BeachAppContext>(options =>
 			options.UseSqlite($"Data Source={dbPath}"));
 		
-        // Registrar serviços
-        builder.Services.AddScoped<IProdutoService, ProdutoService>();
-        builder.Services.AddScoped<IVendaService, VendaService>();
-        builder.Services.AddScoped<IPedidoService, PedidoService>();
+		// Configurar Supabase
+		builder.Services.AddSingleton(provider =>
+		{
+			var options = AdmBeachApp.Data.SupabaseConfig.GetOptions();
+			return new Supabase.Client(AdmBeachApp.Data.SupabaseConfig.Url, AdmBeachApp.Data.SupabaseConfig.AnonKey, options);
+		});
 		
-		// Configurar autenticação Google OAuth (será implementado posteriormente)
-		// builder.Services.AddAuthentication().AddGoogle(...);
+        // Registrar serviços Supabase como principais
+        builder.Services.AddScoped<IProdutoService, SupabaseProdutoService>();
+        
+        // Registrar PedidoService com notificações
+        builder.Services.AddScoped<SupabasePedidoService>(); // Serviço base
+        builder.Services.AddScoped<IPedidoService>(provider =>
+        {
+            var baseService = provider.GetRequiredService<SupabasePedidoService>();
+            var notificacaoService = provider.GetRequiredService<IEventNotificacaoService>();
+            var logger = provider.GetRequiredService<ILogger<PedidoServiceComNotificacao>>();
+            return new PedidoServiceComNotificacao(baseService, notificacaoService, logger);
+        });
+        
+        builder.Services.AddScoped<IVendaService, VendaService>();
+        
+        // Registrar serviço de autenticação
+        builder.Services.AddScoped<IAuthService, AuthService>();
+        
+        // Registrar serviço de autenticação Google para clientes
+        builder.Services.AddScoped<IGoogleClientAuthService, GoogleClientAuthService>();
+        
+        // Registrar serviço de notificações baseado em eventos
+        builder.Services.AddSingleton<IEventNotificacaoService, EventNotificacaoService>();
+        
+        // Registrar serviços locais como fallback (caso necessário)
+        builder.Services.AddScoped<ProdutoService>();
+        builder.Services.AddScoped<PedidoService>();
+		
+		// Configurar autenticação (OAuth será gerenciado pelo Supabase)
+		// A configuração OAuth do Google é feita no painel do Supabase
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();
